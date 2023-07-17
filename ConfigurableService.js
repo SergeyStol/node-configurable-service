@@ -4,9 +4,11 @@ const fs = require('fs');
 
 class ConfigurableService {
    #nodeEnv;
-   #properties
-   constructor(nodeEnv_) {
-      this.#nodeEnv = nodeEnv_ || process.env["NODE.ENV"] || process.env["node.env"] || process.env["NODE_ENV"] || process.env["node_env"];
+   #properties;
+   #verbose;
+   constructor(nodeEnv, verbose = false) {
+      this.#verbose = verbose;
+      this.#nodeEnv = nodeEnv || process.env["NODE.ENV"] || process.env["node.env"] || process.env["NODE_ENV"] || process.env["node_env"];
       const defaultProperties = this.#jsonToMap(this.#getConfigFromFile());
       const specifiedProperties = this.#jsonToMap(this.#getConfigFromFile(`./config/${this.#nodeEnv}.json`));
       const osEnvVars = this.#jsonToMap(this.#getEnvVars());
@@ -16,15 +18,21 @@ class ConfigurableService {
    #getConfigFromFile(path = "./config/default.json") {
       try {
          const data = fs.readFileSync(path, 'utf8');
-         console.debug(`Apply properties from file: ${path}`);
+         this.#logIfVerboseMode(`Apply properties from file: ${path}`);
          return JSON.parse(data);
       } catch (err) {
-         console.debug(`Can't find file with properties: ${path}`);
+         this.#logIfVerboseMode(`Can't find file with properties: ${path}`);
+      }
+   }
+
+   #logIfVerboseMode(msg) {
+      if (this.#verbose) {
+         console.log(msg);
       }
    }
 
    #getEnvVars() {
-      console.debug(`Apply properties from OS environment variables`);
+      this.#logIfVerboseMode(`Apply properties from OS environment variables`);
       return process.env;
    }
 
@@ -40,33 +48,28 @@ class ConfigurableService {
                map.set(nestedKey, nestedVal);
             }
          } else {
-            newKey = newKey.replaceAll(".", "");
-            newKey = newKey.replaceAll("_", "");
-            newKey = newKey.toLowerCase();
-            map.set(newKey, jsonObj[key]);
+            map.set(this.#stringToKeyFormat(newKey), jsonObj[key]);
          }
       }
       return map;
+   }
+
+   #stringToKeyFormat(str) {
+      return str.replace(/[._]/g, "").toLowerCase();
    }
 
    getProperty(property) {
       if (typeof property !== "string") {
          throw new Error(`Wrong property type. Expected type: string. Actual type: ${typeof property}`);
       }
-      let property_ = property.toLowerCase()
-      property_.replaceAll(".", "");
-      property_.replaceAll("_", "");
-      return this.#properties.get(property);
+      return this.#properties.get(this.#stringToKeyFormat(property));
    }
 
    setProperty(property, value) {
       if (typeof property !== "string") {
          throw new Error(`Wrong property type. Expected type: string. Actual type: ${typeof property}`);
       }
-      let property_ = property.toLowerCase()
-      property_.replaceAll(".", "");
-      property_.replaceAll("_", "");
-      return this.#properties.set(property, value);
+      this.#properties.set(this.#stringToKeyFormat(property), value);
    }
 }
 
